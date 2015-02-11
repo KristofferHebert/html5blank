@@ -1,172 +1,131 @@
-/* jshint node: true */
-/* global $: true */
-"use strict";
+// Gulp tasks for css
 
-var gulp = require( "gulp" ),
-	/** @type {Object} Loader of Gulp plugins from `package.json` */
-	$ = require( "gulp-load-plugins" )(),
-	/** @type {Array} JS source files to concatenate and uglify */
-	uglifySrc = [
-		/** Modernizr */
-		"src/bower_components/modernizr/modernizr.js",
-		/** Conditionizr */
-		"src/js/lib/conditionizr-4.3.0.min.js",
-		/** jQuery */
-		"src/bower_components/jquery/dist/jquery.js",
-		/** Page scripts */
-		"src/js/scripts.js"
-	],
-	/** @type {Object of Array} CSS source files to concatenate and minify */
-	cssminSrc = {
-		development: [
-			/** The banner of `style.css` */
-			"src/css/banner.css",
-			/** Theme style */
-			"src/css/style.css"
-		],
-		production: [
-			/** The banner of `style.css` */
-			"src/css/banner.css",
-			/** Normalize */
-			"src/bower_components/normalize.css/normalize.css",
-			/** Theme style */
-			"src/css/style.css"
-		]
-	},
-	/** @type {String} Used inside task for set the mode to 'development' or 'production' */
-	env = (function() {
-		/** @type {String} Default value of env */
-		var env = "development";
+// Load plugins
+var gulp = require('gulp'),
+    gutil = require('gulp-util'),
+    watch = require('gulp-watch'),
+    prefix = require('gulp-autoprefixer'),
+    size = require('gulp-size'),
+    rename = require('gulp-rename'),
+    imagemin = require('gulp-imagemin'),
+    minifyCSS = require('gulp-minify-css'),
+    sass = require('gulp-sass'),
+    csslint = require('gulp-csslint'),
+    plumber = require('gulp-plumber'),
+    notify = require('gulp-notify'),
+    browserSync = require('browser-sync'),
+    browserReload = browserSync.reload;
 
-		/** Test if there was a different value from CLI to env
-			Example: gulp styles --env=production
-			When ES6 will be default. `find` will replace `some`  */
-		process.argv.some(function( key ) {
-			var matches = key.match( /^\-{2}env\=([A-Za-z]+)$/ );
 
-			if ( matches && matches.length === 2 ) {
-				env = matches[1];
-				return true;
-			}
-		});
-
-		return env;
-	} ());
-
-/** Clean */
-gulp.task( "clean", require( "del" ).bind( null, [ ".tmp", "dist" ] ) );
-
-/** Copy */
-gulp.task( "copy", function() {
-	return gulp.src([
-			"src/*.{php,png,css}",
-			"src/modules/*.php",
-			"src/img/**/*.{jpg,png,svg,gif,webp,ico}",
-			"src/fonts/*.{woff,woff2,ttf,otf,eot,svg}",
-			"src/languages/*.{po,mo,pot}"
-		], {
-			base: "src"
-		})
-		.pipe( gulp.dest( "dist" ) );
+// Minify all css files in the css directory
+// Run this in the root directory of the project with `gulp minify-css `
+gulp.task('minify-css', function() {
+    gulp.src('./css/main.css')
+        .pipe(minifyCSS())
+        .pipe(rename('main.min.css'))
+        .pipe(size({
+            gzip: true,
+            showFiles: true
+        }))
+        .pipe(gulp.dest('./css/'));
 });
 
-/** CSS Preprocessors */
-gulp.task( "sass", function () {
-	return gulp.src( "src/css/sass/style.scss" )
-		.pipe( $.rubySass({
-			style: "expanded",
-			precision: 10
-		}))
-		.on( "error", function( e ) {
-			console.error( e );
-		})
-		.pipe( gulp.dest( "src/css" ) );
+gulp.task('minify-img', function() {
+    gulp.src('./img/*')
+        .pipe(imagemin({
+            progressive: true,
+            svgoPlugins: [{
+                removeViewBox: false
+            }],
+        }))
+        .pipe(gulp.dest('./img/'));
 });
 
-/** STYLES */
-gulp.task( "styles", [ "sass" ], function() {
-	console.log( "`styles` task run in `" + env + "` environment" );
-
-	var stream = gulp.src( cssminSrc[ env ] )
-		.pipe( $.concat( "style.css" ))
-		.pipe( $.autoprefixer( "last 2 version" ) );
-
-	if ( env === "production" ) {
-		stream = stream.pipe( $.csso() );
-	}
-
-	return stream.on( "error", function( e ) {
-			console.error( e );
-		})
-		.pipe( gulp.dest( "src" ) );
+// Use csslint without box-sizing or compatible vendor prefixes (these
+// don't seem to be kept up to date on what to yell about)
+gulp.task('csslint', function() {
+    gulp.src('./css/main.css')
+        .pipe(csslint({
+            'compatible-vendor-prefixes': false,
+            'box-sizing': false,
+            'important': false,
+            'known-properties': false
+        }))
+        .pipe(csslint.reporter());
 });
 
-/** JSHint */
-gulp.task( "jshint", function () {
-	/** Test all `js` files exclude those in the `lib` folder */
-	return gulp.src( "src/js/{!(lib)/*.js,*.js}" )
-		.pipe( $.jshint() )
-		.pipe( $.jshint.reporter( "jshint-stylish" ) )
-		.pipe( $.jshint.reporter( "fail" ) );
+// Task that compiles scss files down to good old css
+gulp.task('pre-process', function() {
+
+    var onError = function(err) {
+        notify.onError({
+            title: "Gulp",
+            subtitle: "Failure!",
+            message: "Error: <%= error.message %>"
+        })(err);
+        this.emit('end');
+    };
+
+
+    gulp.src('./sass/main.scss')
+        .pipe(watch(function(files) {
+            return files.pipe(plumber({
+                    errorHandler: onError
+                }))
+                .pipe(sass())
+                .pipe(prefix())
+                .pipe(size({
+                    gzip: false,
+                    showFiles: true
+                }))
+                .pipe(size({
+                    gzip: true,
+                    showFiles: true
+                }))
+                .pipe(gulp.dest('css'))
+                .pipe(minifyCSS())
+                .pipe(rename('main.min.css'))
+                .pipe(size({
+                    gzip: false,
+                    showFiles: true
+                }))
+                .pipe(size({
+                    gzip: true,
+                    showFiles: true
+                }))
+                .pipe(gulp.dest('./css/'))
+                .pipe(browserSync.reload({
+                    stream: true
+                }));
+        }));
 });
 
-/** Templates */
-gulp.task( "template", function() {
-	console.log( "`template` task run in `" + env + "` environment" );
-
-    var is_debug = ( env === "production" ? "false" : "true" );
-
-    return gulp.src( "src/dev-templates/is-debug.php" )
-        .pipe( $.template({ is_debug: is_debug }) )
-        .pipe( gulp.dest( "src/modules" ) );
+// Initialize browser-sync which starts a static server also allows for
+// browsers to reload on filesave
+gulp.task('browser-sync', function() {
+    browserSync.init(null, {
+        server: {
+            baseDir: "./"
+        }
+    });
 });
 
-/** Uglify */
-gulp.task( "uglify", function() {
-	return gulp.src( uglifySrc )
-		.pipe( $.concat( "scripts.min.js" ) )
-		.pipe( $.uglify() )
-		.pipe( gulp.dest( "dist/js" ) );
+// Function to call for reloading browsers
+gulp.task('bs-reload', function() {
+    browserSync.reload();
 });
 
-/** `env` to 'production' */
-gulp.task( "envProduction", function() {
-	env = "production";
-});
+/*
+   DEFAULT TASK
 
-/** Livereload */
-gulp.task( "watch", [ "template", "styles", "jshint" ], function() {
-	var server = $.livereload();
+ • Process sass then auto-prefixes and lints outputted css
+ • Starts a server on port 3000
+ • Reloads browsers when you change html or sass files
 
-	/** Watch for livereoad */
-	gulp.watch([
-		"src/js/**/*.js",
-		"src/*.php",
-		"src/*.css"
-	]).on( "change", function( file ) {
-		console.log( file.path );
-		server.changed( file.path );
-	});
-
-	/** Watch for autoprefix */
-	gulp.watch( [
-		"src/css/*.css",
-		"src/css/sass/**/*.scss"
-	], [ "styles" ] );
-
-	/** Watch for JSHint */
-	gulp.watch( "src/js/{!(lib)/*.js,*.js}", ["jshint"] );
-});
-
-/** Build */
-gulp.task( "build", [
-	"envProduction",
-	"clean",
-	"template",
-	"styles",
-	"jshint",
-	"copy",
-	"uglify"
-], function () {
-	console.log("Build is finished");
+*/
+gulp.task('default', ['pre-process', 'bs-reload', 'browser-sync'], function() {
+    gulp.start('pre-process', 'csslint', 'minify-img');
+    gulp.watch('sass/*.scss', ['pre-process']);
+    gulp.watch('css/main.css', ['bs-reload']);
+    gulp.watch('*.html', ['bs-reload']);
 });

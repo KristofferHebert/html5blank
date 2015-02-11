@@ -1,0 +1,96 @@
+.videoWrapper {
+    position: relative;
+    padding-bottom: 56.25%;
+    padding-top: 25px;
+    height: 0;
+}
+.videoWrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+.section {
+    min-height: 35em;
+    @extend .ptl;
+    @extend .pbl;
+}
+.bg-primary {
+    background-color: $color-primary;
+}
+.bg-primary-dark {
+    background-color: $color-primary-dark;
+    color: $color-white;
+}
+.bg-primary-light {
+    background-color: $color-primary-light;
+}
+.bg-secondary {
+    background-color: $color-secondary;
+}
+.bg-secondary-dark {
+    background-color: $color-secondary-dark;
+}
+.bg-secondary-light {
+    background-color: $color-secondary-light;
+}
+.fl {
+    float: left;
+}
+.fr {
+    float: right;
+}
+.fn {
+    float: none;
+    display: block;
+    margin: auto;
+}
+.hidetext {
+    overflow: hidden;
+    text-indent: -999em;
+    display: block;
+}
+[hidden], .hidden {
+    display: none;
+    visibility: hidden;
+}
+.tar {
+  text-align: right;
+}
+.tal {
+  text-align: left;
+}
+.desktop-only, .tablet-only {
+  display: none;
+}
+
+
+@include break(medium-and-large) {
+    .mobile-only {
+      display: none;
+    }
+}
+/* Medium - only targets 1st breakpoint. Styles
+   ========================================================================== */
+
+@include break(medium) {
+    .tablet-only {
+      display: block;
+    }
+
+}
+/* Large - only targets 2nd breakpoint.
+   ========================================================================== */
+
+@include break(large) {
+    .desktop-only {
+      display: block;
+    }
+    .mobile-tablet-only {
+      display: none;
+    }
+}
+
+
+
